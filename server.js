@@ -8,7 +8,7 @@ const app = express();
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-// Serve static files (logo.png must be inside /public)
+// Serve static files (logo file must be inside /public)
 app.use(express.static(path.join(__dirname, "public")));
 
 // Transcript route
@@ -22,9 +22,13 @@ app.get("/transcript", async (req, res) => {
 
     const page = await browser.newPage();
 
-    // Render the EJS template into HTML
+    // Render EJS template
     const html = await new Promise((resolve, reject) => {
-      app.render("transcript", {}, (err, rendered) => {
+      app.render("transcript", {
+        studentName: "Sample Student",
+        years: "2022–2026",
+        registrar: "E. Rosa"
+      }, (err, rendered) => {
         if (err) reject(err);
         else resolve(rendered);
       });
@@ -40,7 +44,6 @@ app.get("/transcript", async (req, res) => {
 
     await browser.close();
 
-    // Send PDF to browser
     res.set({
       "Content-Type": "application/pdf",
       "Content-Disposition": "inline; filename=transcript.pdf"
