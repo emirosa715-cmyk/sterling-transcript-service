@@ -1,41 +1,61 @@
-const express = require('express');
-const path = require('path');
-const puppeteer = require('puppeteer');
+const express = require("express");
+const path = require("path");
+const puppeteer = require("puppeteer-core");
 
 const app = express();
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/transcript', async (req, res) => {
-  const data = {
-    studentName: 'Jai Leonardelli',
-    years: '2026–2030',
-    registrar: 'Dulcita Bare'
-  };
+// Set EJS as the view engine
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 
-  const html = await new Promise((resolve, reject) => {
-    app.render('transcript', data, (err, rendered) => {
-      if (err) reject(err);
-      else resolve(rendered);
+// Serve static files (logo.png must be inside /public)
+app.use(express.static(path.join(__dirname, "public")));
+
+// Transcript route
+app.get("/transcript", async (req, res) => {
+  try {
+    // Launch Puppeteer using Render's built-in Chrome
+    const browser = await puppeteer.launch({
+      executablePath: "/usr/bin/google-chrome",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
-  });
 
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+    const page = await browser.newPage();
 
-  const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+    // Render the EJS template into HTML
+    const html = await new Promise((resolve, reject) => {
+      app.render("transcript", {}, (err, rendered) => {
+        if (err) reject(err);
+        else resolve(rendered);
+      });
+    });
 
-  const pdf = await page.pdf({ format: 'Letter' });
-  await browser.close();
+    await page.setContent(html, { waitUntil: "networkidle0" });
 
-  res.contentType('application/pdf');
-  res.send(pdf);
+    // Generate PDF
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true
+    });
+
+    await browser.close();
+
+    // Send PDF to browser
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": "inline; filename=transcript.pdf"
+    });
+
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error("PDF generation error:", error);
+    res.status(500).send("Error generating transcript PDF.");
+  }
 });
 
-app.listen(3000, () => {
-  console.log('Transcript service running on port 3000');
+// Required for Render
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
